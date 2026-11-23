@@ -29,6 +29,11 @@ main{padding:10px 10px calc(env(safe-area-inset-bottom) + 90px)}
 .legend{display:flex;gap:10px;font-size:12px;color:var(--muted);margin:2px 0 8px;flex-wrap:wrap}
 .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:4px}
 .count{font-size:13px;color:var(--muted);margin:4px 2px 8px}
+.bar.three{flex-wrap:nowrap}
+.bar.three select{flex:1 1 9em;width:0;padding:8px 2px 8px 6px;text-overflow:ellipsis}
+.bar.three select[data-f=year]{flex:1 1 6.3em}
+.bar.three select[data-f=chain]{flex:1 1 10em}
+.bar.three select[disabled]{opacity:.55}
 .bar.thr{align-items:center;flex-wrap:nowrap}
 .bar.thr label{flex:0 0 auto;font-weight:600;margin-right:2px}
 .bar.thr input{flex:0 0 76px;text-align:center}
@@ -256,7 +261,7 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     });
   }
 
-  /* f: {q, year, chain, genre, minScore, maxScore, companion, status} */
+  /* f: {q, year, chain, place, genre, minScore, maxScore, companion, status} */
   function filter(list, f, today) {
     f = f || {};
     var q = (f.q || '').trim().toLowerCase();
@@ -264,6 +269,7 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
       if (f.status && status(m, today) !== f.status && !(f.status === 'upcomingAll' && status(m, today) !== 'watched')) return false;
       if (f.year && m.date.slice(0, 4) !== String(f.year)) return false;
       if (f.chain && (m.chainNorm || m.chain) !== f.chain) return false;
+      if (f.place && locationName(m) !== f.place) return false;
       if (f.genre && (m.genre || '').toLowerCase() !== f.genre.toLowerCase()) return false;
       if (f.minScore != null && f.minScore !== '' && !(typeof m.score === 'number' && m.score > Number(f.minScore))) return false;
       if (f.maxScore != null && f.maxScore !== '' && !(typeof m.score === 'number' && m.score <= Number(f.maxScore))) return false;
@@ -461,6 +467,21 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     return String(c || '').toLowerCase().replace(/\b([a-z])([a-z']*)/g, function (w, a, b) { return /^(imax|cbd|nz|vmax|4dx|xd)$/.test(a + b) ? (a + b).toUpperCase() : a.toUpperCase() + b; });
   }
   function cinemaName(m) { return [m.chainNorm || m.chain, tidyPlace(m.complex)].filter(Boolean).join(' '); }
+  /* v1.7: the location of a visit for the Watched tab's Location filter. Case is tidied and a few
+     spellings of the same place are read as one (the records themselves are left as typed). */
+  var NO_PLACE = 'Not recorded';
+  var PLACE_ALIASES = { 'Queen St': 'Queen Street', 'Queen Stret': 'Queen Street', 'Wairau Park': 'Wairau', 'Hibiscus': 'Hibiscus Coast', 'Courteney Place': 'Courtenay Place', 'Courtenay': 'Courtenay Place' };
+  function locationName(m) {
+    var p = tidyPlace(String(m.complex || '').trim().replace(/\s+/g, ' '));
+    if (!p) return NO_PLACE;
+    return PLACE_ALIASES[p] || p;
+  }
+  function chainOf(m) { return m.chainNorm || m.chain || ''; }
+  /* Locations (with visit counts) of one chain, or of every chain when chain is empty. */
+  function locations(list, chain) {
+    var c = {}; list.forEach(function (m) { if (chain && chainOf(m) !== chain) return; var k = locationName(m); c[k] = (c[k] || 0) + 1; });
+    return Object.keys(c).sort(function (a, b) { return (a === NO_PLACE) - (b === NO_PLACE) || (a < b ? -1 : a > b ? 1 : 0); }).map(function (k) { return { name: k, count: c[k] }; });
+  }
 
   /* Ranked films, each film once. Rank by its best score; ties go to the higher average over
      every scored visit, then to the film seen more often, then to the one seen most recently,
@@ -617,7 +638,8 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     merge: merge, companions: companions, renameCompanionText: renameCompanionText, renameCompanionsInState: renameCompanionsInState, COMPANION_RENAMES: COMPANION_RENAMES, hasCompanion: hasCompanion, allCompanions: allCompanions, sortByWhen: sortByWhen,
     filter: filter, stats: stats, byYear: byYear, parseBookingCode: parseBookingCode, emptyState: emptyState,
     loadState: loadState, saveState: saveState, toCSV: toCSV, csvCell: csvCell,
-    displayTitle: displayTitle, titleKey: titleKey, rankedFilms: rankedFilms, peopleSummary: peopleSummary, reportDoc: reportDoc, dvdDoc: dvdDoc, FAV_TOP: FAV_TOP, emptyFavs: emptyFavs, normFavs: normFavs, favFind: favFind, favAdd: favAdd, favMove: favMove, favRemove: favRemove, favRename: favRename, favFacts: favFacts, favFact: favFact, favDoc: favDoc, docCSV: docCSV, fmtDay: fmtDay };
+    displayTitle: displayTitle, titleKey: titleKey, rankedFilms: rankedFilms, peopleSummary: peopleSummary, reportDoc: reportDoc, dvdDoc: dvdDoc, FAV_TOP: FAV_TOP, emptyFavs: emptyFavs, normFavs: normFavs, favFind: favFind, favAdd: favAdd, favMove: favMove, favRemove: favRemove, favRename: favRename, favFacts: favFacts, favFact: favFact, favDoc: favDoc, docCSV: docCSV, fmtDay: fmtDay,
+    locationName: locationName, locations: locations, NO_PLACE: NO_PLACE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MG = api;
 })(this);
 </script>
@@ -1025,7 +1047,9 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     var years = {}, chains = {}, genres = {};
     list.forEach(function (m) { years[m.date.slice(0, 4)] = 1; chains[m.chainNorm || m.chain] = 1; if (m.genre) genres[m.genre] = 1; });
     html += '<div class="bar"><input id="q" type="search" placeholder="Search title, cinema, friend…" value="' + esc(f.q || '') + '"></div>';
-    html += '<div class="bar">' + sel('year', 'All years', Object.keys(years).sort().reverse(), f.year) + sel('chain', 'All cinemas', Object.keys(chains).filter(Boolean).sort(), f.chain) + '</div>';
+    var places = f.chain ? MG.locations(list.filter(function (m) { return MG.status(m, t) === 'watched'; }), f.chain) : [];
+    html += '<div class="bar three">' + sel('year', 'Year', Object.keys(years).sort().reverse(), f.year) + sel('chain', 'Cinema chain', Object.keys(chains).filter(Boolean).sort(), f.chain) +
+      (f.chain ? sel('place', 'Location', places.map(function (p) { return p.name; }), f.place) : '<select data-f="place" disabled title="Pick a cinema chain first"><option value="">Location</option></select>') + '</div>';
     html += '<div class="bar">' + sel('genre', 'All genres', Object.keys(genres).sort(), f.genre) + sel('minScore', 'Any score', ['90', '85', '80', '75', '70'], f.minScore, function (v) { return 'Over ' + v; }) + sel('companion', 'Anyone', MG.allCompanions(list).filter(function (c) { return c.count > 1; }).map(function (c) { return c.name; }), f.companion) + '</div>';
     var s = MG.stats(rows);
     html += '<div class="count">' + s.count + ' films' + (s.scored ? ' · average score ' + s.avgScore + ' (' + s.scored + ' scored)' : '') + (s.spent ? ' · $' + s.spent.toFixed(2) + ' spent' : '') + '</div>';
@@ -1495,7 +1519,7 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     if (k === 'rtop') { report.top = Number(t.value) || 10; try { store.setItem(TOP_KEY, String(report.top)); } catch (err) {} render(); return; }
     if (!k) { if (t.id === 'rsf' && t.files[0]) restore(t.files[0]); return; }
     if (k === 'rperson') report.person = t.value; else if (k === 'rgenre') report.genre = t.value; else if (k === 'rmin') report.min = t.value;
-    else if (k === 'df') F.dvd.f = t.value; else if (k === 'dg') F.dvd.g = t.value; else if (k === 'dk') F.dvd.k = t.value; else if (k === 'dla') F.dvd.la = t.value; else if (k === 'dm') F.dvd.m = t.value; else F.watched[k] = t.value;
+    else if (k === 'df') F.dvd.f = t.value; else if (k === 'dg') F.dvd.g = t.value; else if (k === 'dk') F.dvd.k = t.value; else if (k === 'dla') F.dvd.la = t.value; else if (k === 'dm') F.dvd.m = t.value; else { F.watched[k] = t.value; if (k === 'chain') F.watched.place = ''; }
     shown = 60; dvdShown = 100; render();
   });
   function restore(file) {
