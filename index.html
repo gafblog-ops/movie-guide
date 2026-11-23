@@ -21,7 +21,7 @@ header{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;padding:
 header h1{margin:0 0 8px;font-size:18px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline}
 header h1 small{font-weight:400;font-size:12px;opacity:.75}
 nav{display:flex;gap:2px;overflow-x:auto}
-nav button{flex:1;min-width:64px;background:none;border:0;color:#cfcfe0;padding:10px 4px;font:inherit;font-size:14px;border-bottom:3px solid transparent}
+nav button{flex:1 1 auto;min-width:0;white-space:nowrap;background:none;border:0;color:#cfcfe0;padding:10px 3px;font:inherit;font-size:13.5px;border-bottom:3px solid transparent}
 nav button.on{color:#fff;border-color:#fff;font-weight:600}
 main{padding:10px 10px calc(env(safe-area-inset-bottom) + 90px)}
 .bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
@@ -84,6 +84,40 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;p
 .sharebar span{flex:1 1 180px;font-size:14px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 84px);background:var(--ink);color:#fff;padding:9px 14px;border-radius:9px;z-index:30;display:none;max-width:90vw}
 textarea{min-height:90px}
+/* Favourites (v1.6) */
+.fhead h2{margin:4px 2px 2px;font-size:21px;letter-spacing:-.2px}
+.fhead .hint{margin-bottom:12px}
+.favgrid{display:grid;grid-template-columns:1.12fr 1fr;gap:10px;align-items:start}
+@media (max-width:339px){.favgrid{grid-template-columns:1fr}}
+@media (min-width:700px){.favgrid{gap:16px}}
+.favcol{border-radius:18px;padding:10px 8px 8px;min-height:120px}
+.ftopcol{background:linear-gradient(160deg,#2b2b66 0%,#3a3a8c 55%,#5a3a8c 100%);box-shadow:0 6px 18px rgba(42,42,102,.25)}
+.fhoncol{background:linear-gradient(160deg,#ece9fb,#f6eef8);border:1px solid #e1dcf3}
+.favcol h3{margin:2px 6px 10px;font-size:13px;text-transform:uppercase;letter-spacing:.8px}
+.ftopcol h3{color:#fff}.fhoncol h3{color:#5a4d8c}
+.favlist{list-style:none;margin:0;padding:0;min-height:60px;display:flex;flex-direction:column;gap:7px}
+.ftile,.fslot{display:flex;align-items:center;gap:8px;border-radius:14px;padding:9px 8px;min-height:52px}
+.ftile{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08),0 3px 10px rgba(30,30,70,.10);cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:box-shadow .15s,opacity .15s;touch-action:manipulation}
+.ftile:focus-visible{outline:3px solid #ffd27a;outline-offset:2px}
+.ftile .ft{flex:1;min-width:0;display:flex;flex-direction:column}
+.ftile b{font-size:14px;line-height:1.25;overflow-wrap:anywhere}
+.ftile small{font-size:11px;color:var(--muted);margin-top:2px}
+.frank{flex:0 0 28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:#ececf4;color:#3a3a8c}
+.frank.fh{background:#efe7fb;color:#8a5cc2;font-size:12px}
+.ftile.f1 .frank{background:linear-gradient(145deg,#ffe28a,#e0a91a);color:#5a3d00;box-shadow:0 1px 3px rgba(160,110,0,.4)}
+.ftile.f2 .frank{background:linear-gradient(145deg,#f1f1f5,#b9bac6);color:#3b3b48;box-shadow:0 1px 3px rgba(80,80,100,.35)}
+.ftile.f3 .frank{background:linear-gradient(145deg,#f5c9a0,#c0773c);color:#4a2400;box-shadow:0 1px 3px rgba(140,70,20,.35)}
+.fgrip{flex:0 0 auto;color:#b4b4c4;font-size:16px;line-height:1}
+.fslot{border:2px dashed rgba(255,255,255,.28);color:rgba(255,255,255,.7);font-size:13px;cursor:pointer}
+.fslot .frank{background:rgba(255,255,255,.12);color:rgba(255,255,255,.6)}
+.fhoncol .fslot{border-color:#cfc6ea;color:#6d5fa8;justify-content:center;font-weight:600}
+.ftile.fplace{background:transparent;box-shadow:none;outline:2px dashed #b9a8ee;outline-offset:-2px}
+.ftile.fplace>*{visibility:hidden}
+.ftopcol .ftile.fplace{outline-color:rgba(255,255,255,.6)}
+.ftile.fbump{opacity:.5}
+.ftile.fbump .ft::after{content:"\2192  moves to honourable mentions";font-size:11px;color:#8a5cc2;font-weight:600;margin-top:2px}
+.fghost{position:fixed;z-index:50;pointer-events:none;margin:0;cursor:grabbing;box-shadow:0 14px 30px rgba(20,20,60,.35);transition:none;list-style:none}
+body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:none;user-select:none}
 </style>
 </head>
 <body>
@@ -94,6 +128,7 @@ textarea{min-height:90px}
     <button data-v="watched">Watched</button>
     <button data-v="reports">Reports</button>
     <button data-v="dvds">DVDs</button>
+    <button data-v="favs">Favourites</button>
     <button data-v="more">More</button>
   </nav>
 </header>
@@ -279,10 +314,84 @@ textarea{min-height:90px}
     return m;
   }
 
-  function emptyState() { return { version: 1, edits: {}, added: [], deleted: {}, dvdAdded: [], dvdEdits: {}, dvdDeleted: {} }; }
+  function emptyState() { return { version: 1, edits: {}, added: [], deleted: {}, dvdAdded: [], dvdEdits: {}, dvdDeleted: {}, favs: emptyFavs() }; }
   function loadState(storage) {
-    try { var s = JSON.parse(storage.getItem(STORE_KEY)); if (s && s.version === 1) return Object.assign(emptyState(), s); } catch (e) {}
+    try { var s = JSON.parse(storage.getItem(STORE_KEY)); if (s && s.version === 1) { var o = Object.assign(emptyState(), s); o.favs = normFavs(o.favs); return o; } } catch (e) {}
     return emptyState();
+  }
+
+  /* ---------- Favourites (v1.6) ----------
+     Gareth's own all-time favourites, typed in by him: a Top 10 and a list of honourable mentions.
+     Nothing here looks at scores to choose or order them. Each entry is { id, t } (t = the title as typed).
+     Moving a film into a full Top 10 pushes the film in 10th place to the top of the honourable mentions. */
+  var FAV_TOP = 10;
+  function emptyFavs() { return { top: [], hon: [] }; }
+  function favItem(o) { if (!o || typeof o.t !== 'string' || !o.t.trim()) return null; return { id: String(o.id || ('f' + Math.random().toString(36).slice(2, 10))), t: o.t.trim() }; }
+  function normFavs(f) {
+    var out = emptyFavs(), seen = {};
+    if (!f || typeof f !== 'object') return out;
+    ['top', 'hon'].forEach(function (k) { (Array.isArray(f[k]) ? f[k] : []).forEach(function (o) { var it = favItem(o); if (it && !seen[it.id]) { seen[it.id] = 1; out[k].push(it); } }); });
+    if (out.top.length > FAV_TOP) out.hon = out.top.splice(FAV_TOP).concat(out.hon);
+    return out;
+  }
+  function favFind(f, title) {
+    var k = titleKey(title), r = null;
+    ['top', 'hon'].forEach(function (l) { f[l].forEach(function (o, i) { if (!r && titleKey(o.t) === k) r = { list: l, index: i, item: o }; }); });
+    return r;
+  }
+  function overflow(f) { var b = f.top.length > FAV_TOP ? f.top.splice(FAV_TOP) : []; if (b.length) f.hon = b.concat(f.hon); return b[0] || null; }
+  /* Add a typed title to the end of the Top 10 or of the honourable mentions. */
+  function favAdd(favs, title, where, id) {
+    var f = normFavs(favs); title = String(title || '').trim();
+    if (!title) return { favs: f, error: 'empty' };
+    var dup = favFind(f, title); if (dup) return { favs: f, dup: dup };
+    var it = { id: id || ('f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), t: title };
+    if (where === 'top') f.top.splice(Math.min(f.top.length, FAV_TOP - 1), 0, it); else f.hon.push(it);
+    return { favs: f, item: it, bumped: overflow(f) };
+  }
+  /* Move one film to a new place, in the same list or the other one. toIndex is its place in the
+     destination list once it has been taken out of where it was. */
+  function favMove(favs, from, fromIndex, to, toIndex) {
+    var f = normFavs(favs);
+    if (!f[from] || !f[to] || fromIndex < 0 || fromIndex >= f[from].length) return { favs: f, bumped: null };
+    var it = f[from].splice(fromIndex, 1)[0];
+    var max = to === 'top' ? Math.min(f.top.length, FAV_TOP - 1) : f[to].length;
+    var ti = Math.max(0, Math.min(Number(toIndex) || 0, max));
+    f[to].splice(ti, 0, it);
+    return { favs: f, bumped: overflow(f), item: it, index: ti };
+  }
+  function favRemove(favs, list, index) { var f = normFavs(favs); if (f[list]) f[list].splice(index, 1); return f; }
+  function favRename(favs, list, index, title) {
+    var f = normFavs(favs); title = String(title || '').trim();
+    if (!title || !f[list] || !f[list][index]) return { favs: f };
+    var dup = favFind(f, title); if (dup && dup.item.id !== f[list][index].id) return { favs: f, dup: dup };
+    f[list][index] = { id: f[list][index].id, t: title };
+    return { favs: f };
+  }
+  /* How often and how well each film did at the cinema, for the small line under each favourite. */
+  function favFacts(seen) {
+    var m = {};
+    (seen || []).forEach(function (v) { var k = titleKey(v.title); var o = m[k] || (m[k] = { visits: 0, best: null, title: displayTitle(v.title) }); o.visits++; if (isScored(v) && (o.best == null || v.score > o.best)) o.best = v.score; });
+    return m;
+  }
+  /* The cinema facts for a typed title: the same film, or, when the typed title is the start of
+     exactly one film's title ("Rogue One" for "Rogue One: A Star Wars Story"), that film. */
+  function favFact(facts, title) {
+    var k = titleKey(title); if (!k) return null; if (facts[k]) return facts[k];
+    var hits = Object.keys(facts).filter(function (x) { return x.indexOf(k + ' ') === 0; });
+    return hits.length === 1 ? facts[hits[0]] : null;
+  }
+  function favDoc(favs, seen, made) {
+    var f = normFavs(favs), facts = favFacts(seen);
+    var seenTxt = function (o) { var x = favFact(facts, o.t); return x ? String(x.visits) : ''; };
+    var cols = [{ label: '#', w: 0.6, align: 'r' }, { label: 'Film', w: 6.4 }, { label: 'Times seen at the cinema', w: 2.4, align: 'r' }];
+    var d = { title: 'My favourite films of all time', subtitle: 'My own picks, not my highest scores.', name: 'my-favourite-films',
+      footer: "Gareth's Movie Guide" + (made ? ' \u00b7 Made ' + fmtDay(made) : '') };
+    d.blocks = [{ type: 'h', text: 'Top 10' }, { type: 'table', columns: cols, rows: f.top.map(function (o, i) { return [String(i + 1), o.t, seenTxt(o)]; }) }];
+    if (f.hon.length) d.blocks.push({ type: 'h', text: 'Honourable mentions' }, { type: 'table', columns: cols, rows: f.hon.map(function (o, i) { return ['', o.t, seenTxt(o)]; }) });
+    d.csv = { head: ['List', 'Place', 'Film', 'Times seen at the cinema'], rows: f.top.map(function (o, i) { return ['Top 10', i + 1, o.t, seenTxt(o)]; }).concat(f.hon.map(function (o, i) { return ['Honourable mention', i + 1, o.t, seenTxt(o)]; })) };
+    d.count = f.top.length + f.hon.length;
+    return d;
   }
   function saveState(storage, state) { storage.setItem(STORE_KEY, JSON.stringify(state)); }
 
@@ -508,7 +617,7 @@ textarea{min-height:90px}
     merge: merge, companions: companions, renameCompanionText: renameCompanionText, renameCompanionsInState: renameCompanionsInState, COMPANION_RENAMES: COMPANION_RENAMES, hasCompanion: hasCompanion, allCompanions: allCompanions, sortByWhen: sortByWhen,
     filter: filter, stats: stats, byYear: byYear, parseBookingCode: parseBookingCode, emptyState: emptyState,
     loadState: loadState, saveState: saveState, toCSV: toCSV, csvCell: csvCell,
-    displayTitle: displayTitle, titleKey: titleKey, rankedFilms: rankedFilms, peopleSummary: peopleSummary, reportDoc: reportDoc, dvdDoc: dvdDoc, docCSV: docCSV, fmtDay: fmtDay };
+    displayTitle: displayTitle, titleKey: titleKey, rankedFilms: rankedFilms, peopleSummary: peopleSummary, reportDoc: reportDoc, dvdDoc: dvdDoc, FAV_TOP: FAV_TOP, emptyFavs: emptyFavs, normFavs: normFavs, favFind: favFind, favAdd: favAdd, favMove: favMove, favRemove: favRemove, favRename: favRename, favFacts: favFacts, favFact: favFact, favDoc: favDoc, docCSV: docCSV, fmtDay: fmtDay };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MG = api;
 })(this);
 </script>
@@ -635,12 +744,15 @@ textarea{min-height:90px}
   var LEGACY_T = 1; // stamp given to changes made before sync existed: any real later change beats them
 
   // ---------- records <-> state ----------
-  var GROUPS = [['e', 'edits', 'map'], ['a', 'added', 'list'], ['x', 'deleted', 'map'], ['de', 'dvdEdits', 'map'], ['da', 'dvdAdded', 'list'], ['dx', 'dvdDeleted', 'map']];
+  var GROUPS = [['e', 'edits', 'map'], ['a', 'added', 'list'], ['x', 'deleted', 'map'], ['de', 'dvdEdits', 'map'], ['da', 'dvdAdded', 'list'], ['dx', 'dvdDeleted', 'map'], ['fv', 'favs', 'one']];
+  // 'one': the whole favourites list travels as a single record (fv:list), so its order stays whole.
+  function hasFavs(f) { return !!(f && ((f.top && f.top.length) || (f.hon && f.hon.length))); }
   function recordsFromState(state) {
     var out = {};
     GROUPS.forEach(function (g) {
       var src = state[g[1]];
       if (!src) return;
+      if (g[2] === 'one') { if (hasFavs(src)) out[g[0] + ':list'] = src; return; }
       if (g[2] === 'map') Object.keys(src).forEach(function (id) { if (src[id] != null && src[id] !== false) out[g[0] + ':' + id] = src[id]; });
       else src.forEach(function (o) { if (o && o.id) out[g[0] + ':' + o.id] = o; });
     });
@@ -654,7 +766,7 @@ textarea{min-height:90px}
       var v = values[key]; if (v == null) return;
       var i = key.indexOf(':'), p = key.slice(0, i), id = key.slice(i + 1);
       var g = GROUPS.filter(function (x) { return x[0] === p; })[0]; if (!g) return;
-      if (g[2] === 'map') s[g[1]][id] = v; else s[g[1]].push(v);
+      if (g[2] === 'one') s[g[1]] = v; else if (g[2] === 'map') s[g[1]][id] = v; else s[g[1]].push(v);
     });
     ['added', 'dvdAdded'].forEach(function (k) {
       s[k].sort(function (a, b) {
@@ -850,7 +962,7 @@ textarea{min-height:90px}
   var sync = new S.Engine({
     storage: store, config: SYNC_CFG, fetch: function (u, o) { return window.fetch(u, o); }, allowHttp: !!SYNC_CFG.allowHttp,
     getValues: function () { return S.recordsFromState(state); },
-    setValues: function (v) { state = S.stateFromRecords(v, state, MG.emptyState); MG.saveState(store, state); setTimeout(fixNames, 0); if ($('sheet').classList.contains('open')) renderLater = true; else render(); },
+    setValues: function (v) { state = S.stateFromRecords(v, state, MG.emptyState); state.favs = MG.normFavs(state.favs); if (drag) cancelDrag(); MG.saveState(store, state); setTimeout(fixNames, 0); if ($('sheet').classList.contains('open')) renderLater = true; else render(); },
     onStatus: function () { syncBadge(); if (view === 'more' && !$('sheet').classList.contains('open') && !(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) render(); }
   });
   /* Fold short companion names into full ones (v1.4) in this device's changes and any that arrive from
@@ -1098,11 +1210,148 @@ textarea{min-height:90px}
       '<div class="panel"><h3>About this data</h3><p>Imported on ' + fmtDate(SEED.importedAt) + ' from your Movies spreadsheet: ' + SEED.movies.length + ' cinema visits (2012–2026) and ' + SEED.dvds.length + ' collection entries. The spreadsheet itself was not changed.</p><p>Every year from 2012 now has scores and genres.</p><p>Colours follow Auckland time: green on the day, orange before, pink once seen.</p><div class="btns"><button class="btn dan" id="wipe">Undo all my changes</button></div></div>';
   }
 
+  /* ---------- Favourites (v1.6): Gareth's own Top 10 and honourable mentions ---------- */
+  function seenNow() { var t = today(); return all().filter(function (m) { return MG.status(m, t) === 'watched'; }); }
+  function favTile(o, list, i, facts) {
+    var x = MG.favFact(facts, o.t), sub = x ? 'Seen ' + x.visits + (x.visits === 1 ? ' time' : ' times') + (x.best != null ? ' \u00b7 best ' + x.best : '') : '';
+    return '<li class="ftile' + (list === 'top' && i < 3 ? ' f' + (i + 1) : '') + '" data-list="' + list + '" data-i="' + i + '" tabindex="0" aria-label="' + esc((list === 'top' ? 'Number ' + (i + 1) + ': ' : 'Honourable mention: ') + o.t) + '">' +
+      (list === 'top' ? '<span class="frank">' + (i + 1) + '</span>' : '<span class="frank fh">\u2605</span>') +
+      '<span class="ft"><b>' + esc(o.t) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span><span class="fgrip" aria-hidden="true">\u2807</span></li>';
+  }
+  function favsView() {
+    var f = state.favs = MG.normFavs(state.favs), facts = MG.favFacts(seenNow());
+    var h = '<div class="fhead"><div><h2>My favourites</h2><p class="hint">Your own picks, in your order. Hold a film and slide it to move it. Tap a film for more options.</p></div></div>';
+    h += '<div class="favgrid"><section class="favcol ftopcol"><h3>Top 10</h3><ol class="favlist" data-list="top">' + f.top.map(function (o, i) { return favTile(o, 'top', i, facts); }).join('');
+    for (var i = f.top.length; i < MG.FAV_TOP; i++) h += '<li class="fslot" data-add="top"><span class="frank">' + (i + 1) + '</span><span class="ft">' + (i === f.top.length ? 'Add a film' : '') + '</span></li>';
+    h += '</ol></section><section class="favcol fhoncol"><h3>Honourable mentions</h3><ol class="favlist" data-list="hon">' + f.hon.map(function (o, i) { return favTile(o, 'hon', i, facts); }).join('') +
+      '<li class="fslot fadd" data-add="hon"><span class="ft">+ Add a film</span></li></ol></section></div>';
+    if (f.top.length || f.hon.length) h += '<div class="xbar" style="margin-top:14px"><button class="btn pri" id="fpdf">Share as PDF</button><button class="btn" id="fcsv">As CSV</button></div>';
+    return h;
+  }
+  function favAddSheet(where) {
+    var titles = {}; seenNow().forEach(function (m) { titles[MG.displayTitle(m.title)] = 1; });
+    openSheet('<div class="top"><b>Add to ' + (where === 'top' ? 'your Top 10' : 'honourable mentions') + '</b><button class="btn" data-close>Cancel</button></div>' +
+      '<form id="favForm" data-where="' + where + '"><div class="f"><label>Film title</label><input name="t" id="favT" required autocomplete="off" list="favtitles" placeholder="Start typing, or type any title"></div>' +
+      '<datalist id="favtitles">' + Object.keys(titles).sort().map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>' +
+      (where === 'top' && state.favs.top.length >= MG.FAV_TOP ? '<p class="hint">Your Top 10 is full, so this film goes in at 10th and ' + esc(state.favs.top[MG.FAV_TOP - 1].t) + ' moves to honourable mentions.</p>' : '') +
+      '<div class="btns"><button class="btn pri">Add</button></div></form>');
+    setTimeout(function () { var i = $('favT'); if (i) i.focus(); }, 50);
+  }
+  function favSheet(list, i) {
+    var f = state.favs, o = f[list][i]; if (!o) return;
+    var n = f[list].length, b = [];
+    if (i > 0) b.push('<button type="button" class="btn" data-fmove="up">Move up</button>');
+    if (i < n - 1) b.push('<button type="button" class="btn" data-fmove="down">Move down</button>');
+    if (list === 'top') b.push('<button type="button" class="btn" data-fmove="tohon">Move to honourable mentions</button>');
+    else b.push('<button type="button" class="btn" data-fmove="totop">Move into Top 10' + (f.top.length >= MG.FAV_TOP ? ' (as 10th)' : '') + '</button>');
+    openSheet('<div class="top"><b>' + (list === 'top' ? 'Number ' + (i + 1) : 'Honourable mention') + '</b><button class="btn" data-close>Done</button></div>' +
+      '<form id="favEdit" data-list="' + list + '" data-i="' + i + '"><div class="f"><label>Title</label><input name="t" required value="' + esc(o.t) + '"></div><div class="btns"><button class="btn pri">Save title</button></div></form>' +
+      '<div class="btns" data-flist="' + list + '" data-fi="' + i + '">' + b.join('') + '<button type="button" class="btn dan" data-fdel="1">Remove</button></div>');
+  }
+  function favApply(r, msgItem) {
+    state.favs = r.favs; save(); render();
+    if (r.bumped) toast(r.bumped.t + ' moved to honourable mentions'); else if (msgItem) toast(msgItem);
+  }
+  function favMoveBy(list, i, how) {
+    var f = state.favs, r;
+    if (how === 'up') r = MG.favMove(f, list, i, list, i - 1);
+    else if (how === 'down') r = MG.favMove(f, list, i, list, i + 1);
+    else if (how === 'tohon') r = MG.favMove(f, 'top', i, 'hon', 0);
+    else r = MG.favMove(f, 'hon', i, 'top', f.top.length);
+    favApply(r);
+    return r;
+  }
+
+  /* Hold and slide. Mouse: press and move. Touch: hold still for a moment, then slide (a quick swipe still scrolls).
+     The film itself moves through the lists as a dashed space while a copy follows the finger; letting go saves the order. */
+  var drag = null, press = null, dragEnded = 0, lastTouch = 0;
+  function tileXY(e) { var p = e.touches ? (e.touches[0] || e.changedTouches[0]) : e; return { x: p.clientX, y: p.clientY }; }
+  function beginDrag(x, y) {
+    var tile = press.tile; press = null;
+    var r = tile.getBoundingClientRect(), g = tile.cloneNode(true);
+    g.classList.add('fghost'); g.removeAttribute('tabindex'); g.style.width = r.width + 'px'; g.style.left = r.left + 'px'; g.style.top = r.top + 'px';
+    document.body.appendChild(g); tile.classList.add('fplace'); document.body.classList.add('fdragging');
+    drag = { tile: tile, ghost: g, from: tile.dataset.list, fi: +tile.dataset.i, dx: x - r.left, dy: y - r.top, x: x, y: y, raf: 0 };
+    try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+    moveDrag(x, y); autoScroll();
+  }
+  function autoScroll() {
+    if (!drag) return;
+    var y = drag.y, h = window.innerHeight, edge = 70, step = 0;
+    if (y < edge + 60) step = -Math.ceil((edge + 60 - y) / 6); else if (y > h - edge) step = Math.ceil((y - (h - edge)) / 6);
+    if (step) { window.scrollBy(0, step); place(drag.x, drag.y); }
+    drag.raf = requestAnimationFrame(autoScroll);
+  }
+  function moveDrag(x, y) { drag.x = x; drag.y = y; drag.ghost.style.transform = 'translate(' + (x - drag.dx - parseFloat(drag.ghost.style.left)) + 'px,' + (y - drag.dy - parseFloat(drag.ghost.style.top)) + 'px) rotate(-1.5deg) scale(1.03)'; place(x, y); }
+  function place(x, y) {
+    var el = document.elementFromPoint(x, y), list = el && el.closest && el.closest('.favlist');
+    if (!list) { var c = el && el.closest && el.closest('.favcol'); list = c && c.querySelector('.favlist'); }
+    if (!list) return;
+    var tiles = [].filter.call(list.querySelectorAll('.ftile'), function (t) { return t !== drag.tile; }), before = null;
+    for (var i = 0; i < tiles.length; i++) { var r = tiles[i].getBoundingClientRect(); if (y < r.top + r.height / 2) { before = tiles[i]; break; } }
+    if (!before) before = list.querySelector('.fslot');
+    if (before) { if (drag.tile.nextSibling !== before || drag.tile.parentNode !== list) list.insertBefore(drag.tile, before); }
+    else if (drag.tile.parentNode !== list || drag.tile.nextSibling) list.appendChild(drag.tile);
+    // In a full Top 10, show which film will slide over to the honourable mentions
+    var top = document.querySelector('.favlist[data-list="top"]'), tt = top ? top.querySelectorAll('.ftile') : [];
+    [].forEach.call(document.querySelectorAll('.fbump'), function (t) { t.classList.remove('fbump'); });
+    if (tt.length > MG.FAV_TOP) { var last = tt[tt.length - 1]; if (last === drag.tile) last = tt[tt.length - 2]; last.classList.add('fbump'); }
+    var ranks = top ? [].filter.call(top.children, function (c) { return c.classList.contains('ftile') || c.classList.contains('fslot'); }) : [];
+    ranks.forEach(function (c, i) { var b = c.querySelector('.frank'); if (b && !c.classList.contains('fghost')) b.textContent = i < MG.FAV_TOP ? String(i + 1) : ''; });
+    var di = ranks.indexOf(drag.tile);
+    if (di >= MG.FAV_TOP) { drag.tile.querySelector('.frank').textContent = String(MG.FAV_TOP); var b9 = ranks[MG.FAV_TOP - 1] && ranks[MG.FAV_TOP - 1].querySelector('.frank'); if (b9) b9.textContent = ''; }
+    [].forEach.call(document.querySelectorAll('.favlist[data-list="hon"] .ftile .frank'), function (b) { b.textContent = '\u2605'; });
+  }
+  function endDrag() {
+    if (!drag) return;
+    var d = drag; drag = null; cancelAnimationFrame(d.raf);
+    var list = d.tile.parentNode, to = list && list.dataset.list, ti = list ? [].indexOf.call(list.querySelectorAll('.ftile'), d.tile) : -1;
+    d.ghost.remove(); document.body.classList.remove('fdragging'); dragEnded = Date.now();
+    if (!to || ti < 0 || (to === d.from && ti === d.fi)) { render(); return; }
+    favApply(MG.favMove(state.favs, d.from, d.fi, to, ti));
+  }
+  function cancelDrag() { if (!drag) return; var d = drag; drag = null; cancelAnimationFrame(d.raf); d.ghost.remove(); document.body.classList.remove('fdragging'); render(); }
+  function startPress(e, touch) {
+    if (view !== 'favs' || drag) return;
+    var tile = e.target.closest && e.target.closest('.favlist .ftile'); if (!tile) return;
+    var p = tileXY(e);
+    press = { tile: tile, x0: p.x, y0: p.y, touch: touch };
+    if (touch) press.timer = setTimeout(function () { if (press && press.tile === tile) beginDrag(press.x0, press.y0); }, 260);
+  }
+  function clearPress() { if (press && press.timer) clearTimeout(press.timer); press = null; }
+  document.addEventListener('touchstart', function (e) { lastTouch = Date.now(); if (e.touches.length > 1) { clearPress(); return; } startPress(e, true); }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (drag) { e.preventDefault(); var p = tileXY(e); moveDrag(p.x, p.y); return; }
+    if (press) { var q = tileXY(e); if (Math.abs(q.x - press.x0) > 8 || Math.abs(q.y - press.y0) > 8) clearPress(); }
+  }, { passive: false });
+  document.addEventListener('touchend', function (e) { lastTouch = Date.now(); if (drag) { e.preventDefault(); endDrag(); } else clearPress(); }, { passive: false });
+  document.addEventListener('touchcancel', function () { clearPress(); cancelDrag(); });
+  document.addEventListener('mousedown', function (e) { if (e.button !== 0 || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents)) return; if (Date.now() - lastTouch < 1000) return; startPress(e, false); if (press) e.preventDefault(); });
+  document.addEventListener('mousemove', function (e) {
+    if (drag) { moveDrag(e.clientX, e.clientY); return; }
+    if (press && !press.touch && (Math.abs(e.clientX - press.x0) > 4 || Math.abs(e.clientY - press.y0) > 4)) beginDrag(press.x0, press.y0);
+  });
+  document.addEventListener('mouseup', function () { if (drag) endDrag(); else if (press && !press.touch) clearPress(); });
+  document.addEventListener('contextmenu', function (e) { if (e.target.closest && e.target.closest('.favlist .ftile')) e.preventDefault(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && drag) { cancelDrag(); return; }
+    var tile = e.target.closest && e.target.closest('.favlist .ftile'); if (!tile || $('sheet').classList.contains('open')) return;
+    var list = tile.dataset.list, i = +tile.dataset.i, how = null;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); favSheet(list, i); return; }
+    if (e.altKey && e.key === 'ArrowUp' && i > 0) how = 'up';
+    else if (e.altKey && e.key === 'ArrowDown' && i < state.favs[list].length - 1) how = 'down';
+    else if (e.altKey && (e.key === 'ArrowRight' && list === 'top')) how = 'tohon';
+    else if (e.altKey && (e.key === 'ArrowLeft' && list === 'hon')) how = 'totop';
+    if (!how) return;
+    e.preventDefault(); var r = favMoveBy(list, i, how);
+    var nt = document.querySelector('.favlist[data-list="' + (how === 'tohon' ? 'hon' : how === 'totop' ? 'top' : list) + '"] .ftile[data-i="' + r.index + '"]'); if (nt) nt.focus();
+  });
+
   function render() {
     var t = today(); $('todayLbl').textContent = fmtDate(t, true);
     var m = $('main');
-    m.innerHTML = view === 'upcoming' ? listView('upcoming') : view === 'watched' ? listView('watched') : view === 'reports' ? reportsView() : view === 'dvds' ? dvdView() : moreView();
-    $('fab').style.display = view === 'more' || view === 'reports' ? 'none' : 'block';
+    m.innerHTML = view === 'upcoming' ? listView('upcoming') : view === 'watched' ? listView('watched') : view === 'reports' ? reportsView() : view === 'dvds' ? dvdView() : view === 'favs' ? favsView() : moreView();
+    $('fab').style.display = view === 'more' || view === 'reports' || view === 'favs' ? 'none' : 'block';
     [].forEach.call(document.querySelectorAll('#nav button'), function (b) { b.classList.toggle('on', b.dataset.v === view); });
   }
 
@@ -1177,6 +1426,16 @@ textarea{min-height:90px}
     var t = e.target, el;
     if ((el = t.closest('#nav button'))) { view = el.dataset.v; shown = 60; render(); window.scrollTo(0, 0); return; }
     if (t.closest('[data-close]')) { closeSheet(); return; }
+    if (view === 'favs' && !t.closest('.sheet')) {
+      if ((el = t.closest('.favlist .ftile'))) { if (Date.now() - dragEnded > 500) favSheet(el.dataset.list, +el.dataset.i); return; }
+      if ((el = t.closest('[data-add]'))) { favAddSheet(el.dataset.add); return; }
+      if (t.id === 'fpdf' || t.id === 'fcsv') {
+        try { var fd = MG.favDoc(state.favs, seenNow(), today()); if (t.id === 'fpdf') shareFile(fd.name + '.pdf', MGPDF.build(fd), 'application/pdf'); else shareFile(fd.name + '.csv', MG.docCSV(fd), 'text/csv'); } catch (err) { toast('Could not make the file: ' + err.message); }
+        return;
+      }
+    }
+    if ((el = t.closest('[data-fmove]'))) { var fb = el.parentNode; closeSheet(); favMoveBy(fb.dataset.flist, +fb.dataset.fi, el.dataset.fmove); return; }
+    if ((el = t.closest('[data-fdel]'))) { var fp = el.parentNode, fo = state.favs[fp.dataset.flist][+fp.dataset.fi]; if (fo && confirm('Remove ' + fo.t + ' from your favourites?')) { closeSheet(); favApply({ favs: MG.favRemove(state.favs, fp.dataset.flist, +fp.dataset.fi) }, 'Removed ' + fo.t); } return; }
     if ((el = t.closest('[data-edit]'))) { openForm(el.dataset.edit); return; }
     if ((el = t.closest('[data-seen]'))) { var id = el.dataset.seen; if (state.added.some(function (m) { return m.id === id; })) state.added.forEach(function (m) { if (m.id === id) m.watched = true; }); else state.edits[id] = Object.assign(state.edits[id] || {}, { watched: true }); save(); render(); openDetail(id); toast('Marked as seen. Add a score whenever you like.'); return; }
     if ((el = t.closest('[data-del]'))) { if (confirm('Delete this film from the app? (The spreadsheet is not touched.)')) { var i = el.dataset.del; state.added = state.added.filter(function (m) { return m.id !== i; }); if (i.charAt(0) === 's') state.deleted[i] = true; save(); closeSheet(); render(); } return; }
@@ -1212,13 +1471,15 @@ textarea{min-height:90px}
     if ((el = t.closest('tr[data-who]'))) { report.kind = 'person'; report.person = el.dataset.who; render(); window.scrollTo(0, 0); return; }
     if (t.id === 'syncNow') { sync.sync().then(function (ch) { if (sync.status.state === 'ok') toast(ch ? 'Synced: changes from your other devices are in' : 'Synced'); }); return; }
     if (t.id === 'syncOut') { if (confirm('Sign out of sync on this device? Your changes stay on this device; they just stop syncing.')) sync.signOut().then(function () { render(); toast('Signed out of sync'); }); return; }
-    if (t.id === 'wipe') { if (confirm('Undo every edit, addition and removal made in the app?' + (sync.signedIn() ? ' This also undoes them on your other synced devices.' : '') + ' Save a backup first if you might want them.')) { state = MG.emptyState(); save(); render(); toast('Back to the imported data'); } return; }
+    if (t.id === 'wipe') { if (confirm('Undo every edit, addition and removal made in the app?' + (sync.signedIn() ? ' This also undoes them on your other synced devices.' : '') + ' Save a backup first if you might want them.')) { var keepFavs = state.favs; state = MG.emptyState(); state.favs = MG.normFavs(keepFavs); save(); render(); toast('Back to the imported data. Your favourites are kept.'); } return; }
   });
   document.addEventListener('submit', function (e) {
     e.preventDefault(); var f = e.target;
     if (f.id === 'syncForm') { var btn = $('syncIn'); btn.disabled = true; btn.textContent = 'Signing in…'; sync.signIn({ url: f.elements.url && f.elements.url.value, key: f.elements.key && f.elements.key.value }, f.elements.email.value.trim(), f.elements.password.value).then(function () { if (document.activeElement) document.activeElement.blur(); render(); toast(sync.status.state === 'ok' ? 'Sync is on' : 'Signed in. It will sync when it can.'); }, function (err) { btn.disabled = false; btn.textContent = 'Sign in and sync'; toast(err.message); }); return; }
     if (f.id === 'editForm') saveForm(f);
     if (f.id === 'pasteForm') { try { var m = MG.parseBookingCode($('paste').value); state.added.push(m); save(); view = 'upcoming'; render(); toast('Added ' + m.title); } catch (err) { toast(err.message); } }
+    if (f.id === 'favForm') { var ar = MG.favAdd(state.favs, f.elements.t.value, f.dataset.where); if (ar.dup) { toast(ar.dup.item.t + ' is already in your ' + (ar.dup.list === 'top' ? 'Top 10' : 'honourable mentions')); return; } if (ar.error) return; closeSheet(); favApply(ar, 'Added ' + ar.item.t); return; }
+    if (f.id === 'favEdit') { var er = MG.favRename(state.favs, f.dataset.list, +f.dataset.i, f.elements.t.value); if (er.dup) { toast(er.dup.item.t + ' is already in your favourites'); return; } closeSheet(); favApply(er, 'Saved'); return; }
     if (f.id === 'dvdForm') { var o = {}; DVD_FIELDS.forEach(function (x) { o[x[0]] = f.elements[x[0]].value.trim(); }); var id = f.dataset.id; if (!id) { o.id = 'n' + Date.now().toString(36); state.dvdAdded.push(o); } else if (id.charAt(0) === 'n') state.dvdAdded = state.dvdAdded.map(function (d) { return d.id === id ? Object.assign(d, o) : d; }); else state.dvdEdits[id] = o; save(); closeSheet(); render(); toast('Saved'); }
   });
   var tmr;
@@ -1238,7 +1499,7 @@ textarea{min-height:90px}
     shown = 60; dvdShown = 100; render();
   });
   function restore(file) {
-    var r = new FileReader(); r.onload = function () { try { var o = JSON.parse(r.result); if (o.app !== 'gareth-movie-guide' || !o.state || o.state.version !== 1) throw new Error('That is not a Movie Guide backup.'); if (sync.signedIn() && !confirm('Restore this backup? It replaces your changes here and on your other synced devices.')) return; state = Object.assign(MG.emptyState(), o.state); save(); render(); toast('Backup restored'); } catch (e) { toast(e.message); } }; r.readAsText(file);
+    var r = new FileReader(); r.onload = function () { try { var o = JSON.parse(r.result); if (o.app !== 'gareth-movie-guide' || !o.state || o.state.version !== 1) throw new Error('That is not a Movie Guide backup.'); if (sync.signedIn() && !confirm('Restore this backup? It replaces your changes here and on your other synced devices.')) return; state = Object.assign(MG.emptyState(), o.state); state.favs = MG.normFavs(state.favs); save(); render(); toast('Backup restored'); } catch (e) { toast(e.message); } }; r.readAsText(file);
   }
   setInterval(function () { var l = $('todayLbl'); if (l && l.textContent !== fmtDate(today(), true) && !$('sheet').classList.contains('open')) render(); }, 60000);
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') sync.schedule(0); });
