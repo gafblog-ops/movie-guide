@@ -85,6 +85,12 @@ tr.tap td:first-child{color:var(--accent);text-decoration:underline}tr.tot td{fo
 table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:5px 4px;border-bottom:1px solid var(--line)}th{font-size:12px;color:var(--muted)}td.n,th.n{text-align:right}
 .dvd{background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 10px;margin-bottom:6px;cursor:pointer}
 .dvd b{display:block}.dvd span{display:block;font-size:12px;color:var(--muted)}
+.dvdhead{display:flex;align-items:center;gap:10px;justify-content:space-between}.dvdhead>div{min-width:0}.dvdhead .btn{flex:0 0 auto;white-space:nowrap}
+@media (max-width:359px){.dvdhead{flex-wrap:wrap}.dvdhead .btn{width:100%}}
+.req{color:#b00020;font-weight:700}
+.ferr{color:#b00020;font-size:13px;margin-top:3px}.ferr:empty{display:none}.ferr.top{font-weight:600;margin:4px 0}
+form input.bad,form select.bad{border-color:#b00020;box-shadow:0 0 0 1px #b00020}
+form .row>.f{min-width:0}
 .sharebar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 130px);background:#fff;color:var(--ink);border:1px solid #ccc;box-shadow:0 4px 18px rgba(0,0,0,.18);padding:8px 10px;border-radius:10px;z-index:31;display:none;gap:8px;align-items:center;max-width:94vw;flex-wrap:wrap}
 .sharebar span{flex:1 1 180px;font-size:14px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 84px);background:var(--ink);color:#fff;padding:9px 14px;border-radius:9px;z-index:30;display:none;max-width:90vw}
@@ -632,6 +638,35 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
       rows: discs.map(function (x) { return [x.t, x.f, x.f2, x.g, x.ed, x.rg, x.y, x.kind, x.la, x.dir, x.a1, x.a2, x.a3, x.cost, x.from, x.row == null ? '' : x.row, x.id]; }) };
     return d;
   }
+  /* v1.8: adding a disc. Required fields follow the GaF's DVD's tab: Title, Genre, Format, Movie/TV and
+     Live/Animated are filled on every row; Cost and Bought from on 98% (the gaps are old entries). Director,
+     actors, year, second format, region and edition are often blank there, so they stay optional. */
+  var DVD_FORMATS = [['DVD', 'DVD'], ['BD', 'Blu-ray (BD)'], ['4K', '4K']];
+  var DVD_KINDS = ['Movie', 'TV', 'Music', 'Documentary', 'Misc'];
+  var DVD_LA = ['Live', 'Animated'];
+  var DVD_REQUIRED = [['t', 'Title'], ['g', 'Genre'], ['f', 'Format'], ['kind', 'Movie / TV'], ['la', 'Live / Animated'], ['cost', 'Cost'], ['from', 'Bought from']];
+  function dvdTitleKey(t) { return String(t || '').toLowerCase().replace(/\(blu-?ray\)|\(dvd\)|\(4k[^)]*\)/g, '').replace(/^(the|a|an)\s+/, '').replace(/,\s*(the|a|an)$/, '').replace(/[^a-z0-9]+/g, ''); }
+  /* Cost as the sheet writes it: '$12.00'. Accepts 12, 12.5, $12.50, 1,299.00. Returns null when it is not money. */
+  function dvdCost(v) {
+    var s = String(v == null ? '' : v).trim().replace(/^nz\s*/i, '').replace(/^\$\s*/, '').replace(/,/g, '');
+    if (!/^\d+(\.\d{1,2})?$/.test(s) && !/^\.\d{1,2}$/.test(s)) return null;
+    var n = Number(s); if (!isFinite(n) || n > 100000) return null;
+    return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/, ',');
+  }
+  /* Check a disc before it is saved. o: the form values; list: the collection now; opts.isNew: required fields apply
+     to new entries only (old rows with gaps can still be edited); opts.id: the entry being edited; opts.year: this year.
+     Returns { ok, errors: {field: message}, clean: the values to store, dup: an entry with the same title and format }. */
+  function dvdCheck(o, list, opts) {
+    opts = opts || {}; var errors = {}, clean = {};
+    Object.keys(o).forEach(function (k) { clean[k] = String(o[k] == null ? '' : o[k]).replace(/\s+/g, ' ').trim(); });
+    var req = opts.isNew ? DVD_REQUIRED : [['t', 'Title']];
+    req.forEach(function (r) { if (!clean[r[0]]) errors[r[0]] = r[1] + ' is needed'; });
+    if (clean.cost) { var c = dvdCost(clean.cost); if (c == null) errors.cost = 'Type the cost as a number, like 24.99'; else clean.cost = c; }
+    if (clean.y) { var yr = Number(clean.y), max = (opts.year || new Date().getFullYear()) + 2; if (!/^\d{4}$/.test(clean.y) || yr < 1880 || yr > max) errors.y = 'Year should be four digits, like 1995'; }
+    var key = dvdTitleKey(clean.t), dup = null;
+    if (key && clean.f) (list || []).some(function (d) { if (d.id !== opts.id && dvdTitleKey(d.t) === key && (d.f || '').toUpperCase() === clean.f.toUpperCase()) { dup = d; return true; } return false; });
+    return { ok: !Object.keys(errors).length, errors: errors, clean: clean, dup: dup };
+  }
   function docCSV(d) { return '\ufeff' + [d.csv.head].concat(d.csv.rows).map(function (r) { return r.map(csvCell).join(','); }).join('\r\n') + '\r\n'; }
 
   var api = { TZ: TZ, STORE_KEY: STORE_KEY, aucklandToday: aucklandToday, status: status, scoreLabel: scoreLabel, genreLabel: genreLabel,
@@ -639,7 +674,8 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     filter: filter, stats: stats, byYear: byYear, parseBookingCode: parseBookingCode, emptyState: emptyState,
     loadState: loadState, saveState: saveState, toCSV: toCSV, csvCell: csvCell,
     displayTitle: displayTitle, titleKey: titleKey, rankedFilms: rankedFilms, peopleSummary: peopleSummary, reportDoc: reportDoc, dvdDoc: dvdDoc, FAV_TOP: FAV_TOP, emptyFavs: emptyFavs, normFavs: normFavs, favFind: favFind, favAdd: favAdd, favMove: favMove, favRemove: favRemove, favRename: favRename, favFacts: favFacts, favFact: favFact, favDoc: favDoc, docCSV: docCSV, fmtDay: fmtDay,
-    locationName: locationName, locations: locations, NO_PLACE: NO_PLACE };
+    locationName: locationName, locations: locations, NO_PLACE: NO_PLACE,
+    DVD_FORMATS: DVD_FORMATS, DVD_KINDS: DVD_KINDS, DVD_LA: DVD_LA, DVD_REQUIRED: DVD_REQUIRED, dvdCheck: dvdCheck, dvdCost: dvdCost, dvdTitleKey: dvdTitleKey };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MG = api;
 })(this);
 </script>
@@ -1186,23 +1222,23 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
   /* The entries the DVDs tab lists with its current search and filters, A to Z (all of them, not only those shown so far). */
   function dvdRows(list) {
     var f = F.dvd, q = (f.q || '').toLowerCase();
-    var rows = list.filter(function (d) { return (!f.f || d.f === f.f) && (!f.g || d.g === f.g) && (!f.k || d.kind === f.k) && (!f.la || d.la === f.la) && (!f.m || (f.m === 'cost' ? !d.cost : f.m === 'from' ? !d.from : (!d.cost || !d.from))) && (!q || [d.t, d.ed, d.y, d.dir, d.a1, d.a2, d.a3, d.from].join(' ').toLowerCase().indexOf(q) >= 0); });
+    var rows = list.filter(function (d) { return (!f.f || d.f === f.f) && (!f.g || d.g === f.g) && (!f.k || d.kind === f.k) && (!f.la || d.la === f.la) && (!f.m || (f.m === 'added' ? d.row == null : f.m === 'cost' ? !d.cost : f.m === 'from' ? !d.from : (!d.cost || !d.from))) && (!q || [d.t, d.ed, d.y, d.dir, d.a1, d.a2, d.a3, d.from].join(' ').toLowerCase().indexOf(q) >= 0); });
     rows.sort(function (a, b) { return (a.t || '').localeCompare(b.t || '', 'en', { sensitivity: 'base', numeric: true }); });
     return rows;
   }
   function dvdFilterLabel() {
     var f = F.dvd;
-    return [f.q ? '"' + f.q + '"' : '', f.f, f.g, f.k, f.la, f.m === 'cost' ? 'no cost' : f.m === 'from' ? 'no shop' : f.m === 'either' ? 'missing cost or shop' : ''].filter(Boolean).join(', ');
+    return [f.q ? '"' + f.q + '"' : '', f.f, f.g, f.k, f.la, f.m === 'added' ? 'added in the guide' : f.m === 'cost' ? 'no cost' : f.m === 'from' ? 'no shop' : f.m === 'either' ? 'missing cost or shop' : ''].filter(Boolean).join(', ');
   }
   function dvdDocNow() { return MG.dvdDoc(dvdRows(dvdList()), dvdFilterLabel(), today()); }
   function dvdView() {
     var f = F.dvd, list = dvdList();
     var formats = {}, genres = {}, kinds = {}, las = {}; list.forEach(function (d) { if (d.f) formats[d.f] = (formats[d.f] || 0) + 1; if (d.g) genres[d.g] = 1; if (d.kind) kinds[d.kind] = (kinds[d.kind] || 0) + 1; if (d.la) las[d.la] = (las[d.la] || 0) + 1; });
-    var nCost = list.filter(function (d) { return !d.cost; }).length, nFrom = list.filter(function (d) { return !d.from; }).length;
+    var nCost = list.filter(function (d) { return !d.cost; }).length, nFrom = list.filter(function (d) { return !d.from; }).length, nAdded = list.filter(function (d) { return d.row == null; }).length;
     var rows = dvdRows(list);
-    var h = '<div class="panel"><b>Your DVD and disc collection</b><p class="src" style="margin:2px 0 0">Kept separate from your cinema history. ' + list.length + ' entries from the GaF\'s DVD\'s tab.</p></div>';
+    var h = '<div class="panel dvdhead"><div><b>Your DVD and disc collection</b><p class="src" style="margin:2px 0 0">Kept separate from your cinema history. ' + list.length + ' entries: ' + (list.length - nAdded) + ' from the GaF\'s DVD\'s tab' + (nAdded ? ', ' + nAdded + ' added here' : '') + '.</p></div><button class="btn pri" id="dadd">+ Add a disc</button></div>';
     h += '<div class="bar"><input id="dq" type="search" placeholder="Title, director, actor, shop…" value="' + esc(f.q || '') + '"></div>';
-    h += '<div class="bar">' + sel('df', 'All formats', Object.keys(formats).sort(), f.f, function (v) { return v + ' (' + formats[v] + ')'; }) + sel('dg', 'All genres', Object.keys(genres).sort(), f.g) + '</div><div class="bar">' + sel('dk', 'Movie / TV', Object.keys(kinds).sort(), f.k, function (v) { return v + ' (' + kinds[v] + ')'; }) + sel('dla', 'Live / Animated', Object.keys(las).sort(), f.la, function (v) { return v + ' (' + las[v] + ')'; }) + sel('dm', 'Any details', ['cost', 'from', 'either'], f.m, function (v) { return v === 'cost' ? 'No cost (' + nCost + ')' : v === 'from' ? 'No shop (' + nFrom + ')' : 'Missing either'; }) + '</div>';
+    h += '<div class="bar">' + sel('df', 'All formats', Object.keys(formats).sort(), f.f, function (v) { return v + ' (' + formats[v] + ')'; }) + sel('dg', 'All genres', Object.keys(genres).sort(), f.g) + '</div><div class="bar">' + sel('dk', 'Movie / TV', Object.keys(kinds).sort(), f.k, function (v) { return v + ' (' + kinds[v] + ')'; }) + sel('dla', 'Live / Animated', Object.keys(las).sort(), f.la, function (v) { return v + ' (' + las[v] + ')'; }) + sel('dm', 'Any details', ['cost', 'from', 'either'].concat(nAdded ? ['added'] : []), f.m, function (v) { return v === 'added' ? 'Added here (' + nAdded + ')' : v === 'cost' ? 'No cost (' + nCost + ')' : v === 'from' ? 'No shop (' + nFrom + ')' : 'Missing either'; }) + '</div>';
     h += '<div class="count">' + rows.length + ' match' + (rows.length === 1 ? '' : 'es') + '</div>';
     if (rows.length) h += '<div class="xbar"><button class="btn pri" id="xdpdf">Share list as PDF</button><button class="btn" id="xdcsv">List as CSV</button></div><p class="hint">Shares all ' + rows.length + ' entries listed here' + (dvdFilterLabel() ? ', with your search and filters' : '') + '.</p>';
     h += rows.slice(0, dvdShown).map(function (d) { return '<div class="dvd" data-dvd="' + esc(d.id) + '"><b>' + esc(d.t) + '</b><span>' + esc([d.f, d.f2 && d.f2 !== d.f ? d.f2 : '', d.g, d.ed, d.rg ? 'Region ' + d.rg : '', d.y].filter(Boolean).join(' · ')) + '</span>' + ((d.dir || d.a1) ? '<span>' + esc([d.dir ? 'Dir. ' + d.dir : '', [d.a1, d.a2, d.a3].filter(Boolean).join(', ')].filter(Boolean).join(' · ')) + '</span>' : '') + '<span>' + esc([d.cost || 'No cost', d.from || 'No shop'].join(' · ')) + '</span></div>'; }).join('');
@@ -1430,12 +1466,66 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     save(); closeSheet(); render(); toast('Saved');
   }
 
+  /* v1.8: one form for adding a disc and editing an entry. New entries (and ones added here) need the fields the
+     GaF's DVD's tab always fills in (MG.DVD_REQUIRED); old sheet rows only need a title, so their gaps never block a save. */
+  function dvdStrict(id) { return !id || id.charAt(0) === 'n'; }
+  function dvdOptions(list, key) { var c = {}; list.forEach(function (d) { var v = (d[key] || '').trim(); if (v) c[v] = (c[v] || 0) + 1; }); return Object.keys(c).sort(function (a, b) { return c[b] - c[a] || a.localeCompare(b); }); }
   function openDvd(id) {
-    var d = dvdList().filter(function (x) { return x.id === id; })[0] || { id: '' };
-    var fl = DVD_FIELDS;
-    var h = '<div class="top"><b>' + (d.id ? 'Collection entry' : 'Add to collection') + '</b><button class="btn" data-close>Close</button></div><form id="dvdForm" data-id="' + esc(d.id) + '">' + fl.map(function (f) { return '<div class="f"><label>' + f[1] + '</label><input name="' + f[0] + '" value="' + esc(d[f[0]] || '') + '"' + (f[0] === 't' ? ' required' : '') + '></div>'; }).join('') +
-      '<div class="btns"><button class="btn pri">Save</button>' + (d.id ? '<button type="button" class="btn dan" data-ddel="' + esc(d.id) + '">Remove</button>' : '') + '</div>' + (d.row ? '<div class="src">GaF\'s DVD\'s row ' + d.row + '</div>' : '') + '</form>';
+    var list = dvdList(), d = list.filter(function (x) { return x.id === id; })[0] || { id: '', kind: 'Movie', la: 'Live' };
+    var strict = dvdStrict(d.id), req = {}; if (strict) MG.DVD_REQUIRED.forEach(function (r) { req[r[0]] = 1; }); else req.t = 1;
+    var lab = function (k, text) { return '<label for="dv-' + k + '">' + text + (req[k] ? ' <span class="req">*</span>' : '') + '</label>'; };
+    var err = function (k) { return '<div class="ferr" data-err="' + k + '"></div>'; };
+    var inp = function (k, text, extra) { return '<div class="f">' + lab(k, text) + '<input id="dv-' + k + '" name="' + k + '" value="' + esc(d[k] || '') + '" autocomplete="off"' + (extra || '') + '>' + err(k) + '</div>'; };
+    var pick = function (k, text, opts, blank) {
+      var v = d[k] || '', have = opts.some(function (o) { return o[0] === v; });
+      if (v && !have) opts = opts.concat([[v, v]]);
+      return '<div class="f">' + lab(k, text) + '<select id="dv-' + k + '" name="' + k + '">' + (blank != null ? '<option value="">' + blank + '</option>' : '') + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === v ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>' + err(k) + '</div>';
+    };
+    var pairs = function (a) { return a.map(function (x) { return [x, x]; }); };
+    var dl = function (idn, vals) { return '<datalist id="' + idn + '">' + vals.slice(0, 400).map(function (v) { return '<option value="' + esc(v) + '">'; }).join('') + '</datalist>'; };
+    var h = '<div class="top"><b>' + (d.id ? 'Collection entry' : 'Add a disc') + '</b><button class="btn" data-close>' + (d.id ? 'Close' : 'Cancel') + '</button></div>' +
+      '<form id="dvdForm" novalidate data-id="' + esc(d.id) + '">' +
+      (strict ? '<p class="hint" style="margin:0 0 4px"><span class="req">*</span> needed, as in your spreadsheet. The rest can be left blank.</p>' : '') +
+      '<div class="ferr top" data-err="_"></div>' +
+      inp('t', 'Title', ' enterkeyhint="next" placeholder="e.g. Heat"') +
+      '<div class="row">' + pick('f', 'Format', MG.DVD_FORMATS.slice(), 'Choose…') + pick('f2', 'Second format', MG.DVD_FORMATS.slice(), 'None') + '</div>' +
+      '<div class="row">' + pick('kind', 'Movie / TV', pairs(MG.DVD_KINDS), strict ? null : '–') + pick('la', 'Live / Animated', pairs(MG.DVD_LA), strict ? null : '–') + '</div>' +
+      '<div class="row">' + inp('g', 'Genre', ' list="dvGenres" placeholder="e.g. Thriller"') + inp('y', 'Year', ' inputmode="numeric" maxlength="4" placeholder="e.g. 1995"') + '</div>' +
+      '<div class="row">' + inp('cost', 'Cost', ' inputmode="decimal" placeholder="e.g. 24.99"') + inp('from', 'Bought from', ' list="dvShops" placeholder="e.g. JB Hi-Fi Albany"') + '</div>' +
+      inp('dir', 'Director') +
+      '<div class="row">' + inp('a1', 'Actor one') + inp('a2', 'Actor two') + '</div>' + inp('a3', 'Actor three') +
+      '<div class="row">' + inp('ed', 'Edition', ' list="dvEditions" placeholder="e.g. STEELBOOK"') + inp('rg', 'Region') + '</div>' +
+      dl('dvGenres', dvdOptions(list, 'g')) + dl('dvShops', dvdOptions(list, 'from')) + dl('dvEditions', dvdOptions(list, 'ed')) +
+      '<div class="btns"><button class="btn pri" id="dvSave">' + (d.id ? 'Save' : 'Add to collection') + '</button>' + (d.id ? '<button type="button" class="btn dan" data-ddel="' + esc(d.id) + '">Remove</button>' : '') + '</div>' +
+      (d.row ? '<div class="src">GaF\'s DVD\'s row ' + d.row + '</div>' : d.addedOn ? '<div class="src">Added in the guide on ' + fmtDate(d.addedOn) + '</div>' : '') + '</form>';
     openSheet(h);
+    if (!d.id) { var ti = $('dv-t'); if (ti && !('ontouchstart' in window)) ti.focus(); }
+  }
+  function saveDvd(f) {
+    var o = {}; DVD_FIELDS.forEach(function (x) { o[x[0]] = f.elements[x[0]] ? f.elements[x[0]].value : ''; });
+    var id = f.dataset.id, list = dvdList();
+    var r = MG.dvdCheck(o, list, { isNew: dvdStrict(id), id: id, year: +today().slice(0, 4) });
+    [].forEach.call(f.querySelectorAll('[data-err]'), function (e) { e.textContent = ''; });
+    [].forEach.call(f.querySelectorAll('.bad'), function (e) { e.classList.remove('bad'); });
+    if (!r.ok) {
+      var first = null;
+      Object.keys(r.errors).forEach(function (k) { var e = f.querySelector('[data-err="' + k + '"]'); if (e) e.textContent = r.errors[k]; var el = f.elements[k]; if (el) { el.classList.add('bad'); if (!first) first = el; } });
+      var n = Object.keys(r.errors).length; f.querySelector('[data-err="_"]').textContent = n === 1 ? 'One thing still needs filling in.' : n + ' things still need filling in.';
+      if (first) { first.focus(); try { first.scrollIntoView({ block: 'center' }); } catch (x) {} }
+      return false;
+    }
+    if (r.dup && f.dataset.dupok !== MG.dvdTitleKey(r.clean.t) + '|' + r.clean.f) {
+      f.dataset.dupok = MG.dvdTitleKey(r.clean.t) + '|' + r.clean.f;
+      f.querySelector('[data-err="_"]').textContent = 'You already have ' + r.dup.t + ' on ' + r.dup.f + (r.dup.ed ? ' (' + r.dup.ed + ')' : '') + '. Tap ' + (id ? 'Save' : 'Add to collection') + ' again to keep both.';
+      $('dvSave').scrollIntoView && $('dvSave').scrollIntoView({ block: 'center' });
+      return false;
+    }
+    var c = r.clean;
+    if (!id) { c.id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); c.addedOn = today(); state.dvdAdded.push(c); }
+    else if (id.charAt(0) === 'n') state.dvdAdded = state.dvdAdded.map(function (d) { return d.id === id ? Object.assign({}, d, c) : d; });
+    else state.dvdEdits[id] = c;
+    save(); closeSheet(); render(); toast(id ? 'Saved' : 'Added ' + c.t + ' (' + c.f + ')');
+    return true;
   }
 
   /* ---------- backup ---------- */
@@ -1469,6 +1559,7 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     if ((el = t.closest('.dvd'))) { openDvd(el.dataset.dvd); return; }
     if (t.id === 'more') { shown += 100; render(); return; }
     if (t.id === 'dmore') { dvdShown += 200; render(); return; }
+    if (t.id === 'dadd') { openDvd(''); return; }
     if ((el = t.closest('#rtopn button'))) { report.top = Number(el.dataset.top) || 10; try { store.setItem(TOP_KEY, String(report.top)); } catch (err) {} render(); return; }
     if ((el = t.closest('#rchips button'))) { report.kind = el.dataset.r; render(); return; }
     if (t.id === 'rdown' || t.id === 'rup') { setThr(report.over + (t.id === 'rup' ? 1 : -1)); render(); return; }
@@ -1504,7 +1595,7 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     if (f.id === 'pasteForm') { try { var m = MG.parseBookingCode($('paste').value); state.added.push(m); save(); view = 'upcoming'; render(); toast('Added ' + m.title); } catch (err) { toast(err.message); } }
     if (f.id === 'favForm') { var ar = MG.favAdd(state.favs, f.elements.t.value, f.dataset.where); if (ar.dup) { toast(ar.dup.item.t + ' is already in your ' + (ar.dup.list === 'top' ? 'Top 10' : 'honourable mentions')); return; } if (ar.error) return; closeSheet(); favApply(ar, 'Added ' + ar.item.t); return; }
     if (f.id === 'favEdit') { var er = MG.favRename(state.favs, f.dataset.list, +f.dataset.i, f.elements.t.value); if (er.dup) { toast(er.dup.item.t + ' is already in your favourites'); return; } closeSheet(); favApply(er, 'Saved'); return; }
-    if (f.id === 'dvdForm') { var o = {}; DVD_FIELDS.forEach(function (x) { o[x[0]] = f.elements[x[0]].value.trim(); }); var id = f.dataset.id; if (!id) { o.id = 'n' + Date.now().toString(36); state.dvdAdded.push(o); } else if (id.charAt(0) === 'n') state.dvdAdded = state.dvdAdded.map(function (d) { return d.id === id ? Object.assign(d, o) : d; }); else state.dvdEdits[id] = o; save(); closeSheet(); render(); toast('Saved'); }
+    if (f.id === 'dvdForm') { saveDvd(f); }
   });
   var tmr;
   document.addEventListener('input', function (e) {
