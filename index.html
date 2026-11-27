@@ -319,7 +319,7 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     var m = {
       id: o.id || ('a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
       title: String(o.title), date: o.date, time: o.time || null, chain: o.chain || '', chainNorm: o.chain || '',
-      complex: o.complex || '', screen: o.screen != null ? String(o.screen) : '', type: o.type || '', dim: o.format || o.dim || '',
+      complex: o.complex || '', screen: o.screen != null ? String(o.screen) : '', type: normCinemaType(o.type), dim: o.format || o.dim || '',
       seat: o.seat || '', price: o.price != null && o.price !== '' ? Number(o.price) : null, with: o.with || '',
       notes: o.notes || '', genre: o.genre || '', score: typeof o.score === 'number' ? o.score : null,
       leaveAt: o.leaveAt || '', source: 'Added from Sesame'
@@ -479,6 +479,21 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
      spellings of the same place are read as one (the records themselves are left as typed). */
   var NO_PLACE = 'Not recorded';
   var PLACE_ALIASES = { 'Queen St': 'Queen Street', 'Queen Stret': 'Queen Street', 'Wairau Park': 'Wairau', 'Hibiscus': 'Hibiscus Coast', 'Courteney Place': 'Courtenay Place', 'Courtenay': 'Courtenay Place' };
+  /* v1.10: cinema types offered in the add/edit form. ScreenX added for Event Cinemas Albany's new screen.
+     normCinemaType writes any spelling of ScreenX ('Screen X', 'SCREENX', 'screen-x') as 'ScreenX'; other types stay as typed. */
+  var CINEMA_TYPES = ['Standard', 'Gold', 'VMAX', 'Recliner', 'ScreenX', 'IMAX', 'DBOX', 'Couch'];
+  function normCinemaType(t) {
+    var v = String(t == null ? '' : t).trim();
+    return /^screen[\s\-_]*x$/i.test(v) ? 'ScreenX' : v;
+  }
+  /* Types for the form's suggestion list: the standard ones, then any others already used (Y/N flags left out). */
+  function cinemaTypes(list) {
+    var seen = {}, out = [];
+    CINEMA_TYPES.concat((list || []).map(function (m) { return normCinemaType(m && m.type); })).forEach(function (t) {
+      var k = t.toLowerCase(); if (!t || k === 'y' || k === 'n' || seen[k]) return; seen[k] = 1; out.push(t);
+    });
+    return out;
+  }
   function locationName(m) {
     var p = tidyPlace(String(m.complex || '').trim().replace(/\s+/g, ' '));
     if (!p) return NO_PLACE;
@@ -689,7 +704,7 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     filter: filter, stats: stats, byYear: byYear, parseBookingCode: parseBookingCode, emptyState: emptyState,
     loadState: loadState, saveState: saveState, toCSV: toCSV, csvCell: csvCell,
     displayTitle: displayTitle, titleKey: titleKey, rankedFilms: rankedFilms, peopleSummary: peopleSummary, reportDoc: reportDoc, dvdDoc: dvdDoc, FAV_TOP: FAV_TOP, emptyFavs: emptyFavs, normFavs: normFavs, favFind: favFind, favAdd: favAdd, favMove: favMove, favRemove: favRemove, favRename: favRename, favFacts: favFacts, favFact: favFact, favDoc: favDoc, docCSV: docCSV, fmtDay: fmtDay,
-    locationName: locationName, locations: locations, NO_PLACE: NO_PLACE,
+    locationName: locationName, locations: locations, NO_PLACE: NO_PLACE, CINEMA_TYPES: CINEMA_TYPES, normCinemaType: normCinemaType, cinemaTypes: cinemaTypes,
     DVD_FORMATS: DVD_FORMATS, DVD_KINDS: DVD_KINDS, DVD_LA: DVD_LA, DVD_REQUIRED: DVD_REQUIRED, DVD_COUNTS: DVD_COUNTS, dvdCountText: dvdCountText, dvdCheck: dvdCheck, dvdCost: dvdCost, dvdTitleKey: dvdTitleKey };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MG = api;
 })(this);
@@ -1448,18 +1463,19 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
   function closeSheet() { $('sheet').classList.remove('open'); document.body.style.overflow = ''; if (renderLater) { renderLater = false; render(); } }
 
   /* ---------- add / edit ---------- */
-  var FIELDS = [['title', 'Title', 'text', 1], ['date', 'Date', 'date'], ['time', 'Time', 'time'], ['chain', 'Chain (Event, Hoyts, Bridgeway…)', 'text'], ['complex', 'Cinema / location', 'text'], ['screen', 'Screen', 'text'], ['seat', 'Seat', 'text'], ['dim', '2D / 3D', 'text'], ['type', 'Type (Gold, VMAX, Recliner…)', 'text'], ['price', 'Price ($)', 'number'], ['with', 'With (e.g. Josh & Annalise)', 'text', 1], ['score', 'Score /100 (blank = unrated)', 'number'], ['genre', 'Genre', 'text'], ['leaveAt', 'Leave at', 'time'], ['notes', 'Notes', 'text', 1]];
+  var FIELDS = [['title', 'Title', 'text', 1], ['date', 'Date', 'date'], ['time', 'Time', 'time'], ['chain', 'Chain (Event, Hoyts, Bridgeway…)', 'text'], ['complex', 'Cinema / location', 'text'], ['screen', 'Screen', 'text'], ['seat', 'Seat', 'text'], ['dim', '2D / 3D', 'text'], ['type', 'Type (Gold, VMAX, Recliner, ScreenX…)', 'text'], ['price', 'Price ($)', 'number'], ['with', 'With (e.g. Josh & Annalise)', 'text', 1], ['score', 'Score /100 (blank = unrated)', 'number'], ['genre', 'Genre', 'text'], ['leaveAt', 'Leave at', 'time'], ['notes', 'Notes', 'text', 1]];
   function openForm(id) {
     var m = id ? byId(id) : { date: today() };
     var h = '<div class="top"><b>' + (id ? 'Edit' : 'Add a booking or film') + '</b><button class="btn" data-close>Cancel</button></div><form id="editForm" data-id="' + esc(id || '') + '"><div class="row">';
     FIELDS.forEach(function (f) {
       var v = f[0] === 'chain' ? (m.chainNorm || m.chain || '') : m[f[0]]; if (v == null) v = '';
-      var inp = '<input name="' + f[0] + '" type="' + f[2] + '"' + (f[2] === 'number' ? ' inputmode="decimal" step="any"' : '') + (f[0] === 'title' || f[0] === 'date' ? ' required' : '') + ' value="' + esc(v) + '" list="' + (f[0] === 'chain' ? 'chains' : f[0] === 'genre' ? 'genres' : '') + '">';
+      var inp = '<input name="' + f[0] + '" type="' + f[2] + '"' + (f[2] === 'number' ? ' inputmode="decimal" step="any"' : '') + (f[0] === 'title' || f[0] === 'date' ? ' required' : '') + ' value="' + esc(v) + '" list="' + (f[0] === 'chain' ? 'chains' : f[0] === 'genre' ? 'genres' : f[0] === 'type' ? 'ctypes' : '') + '"' + (f[0] === 'type' ? ' autocomplete="off"' : '') + '>';
       h += '<div class="f"' + (f[3] ? ' style="grid-column:1/-1"' : '') + '><label>' + f[1] + '</label>' + inp + '</div>';
     });
     h += '</div><div class="f"><label><input type="checkbox" name="seen" style="width:auto"' + (m.watched === true ? ' checked' : '') + '> Mark as seen (even if not rated yet)</label></div>';
     var list = all(), ch = {}, g = {}; list.forEach(function (x) { ch[x.chainNorm || x.chain] = 1; if (x.genre) g[x.genre] = 1; });
-    h += '<datalist id="chains">' + Object.keys(ch).filter(Boolean).sort().map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist><datalist id="genres">' + Object.keys(g).sort().map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>';
+    h += '<datalist id="chains">' + Object.keys(ch).filter(Boolean).sort().map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist><datalist id="genres">' + Object.keys(g).sort().map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>' +
+      '<datalist id="ctypes">' + MG.cinemaTypes(list).map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>';
     h += '<div class="btns"><button class="btn pri">Save</button>' + (id ? '<button type="button" class="btn dan" data-del="' + esc(id) + '">Delete</button>' : '') + '</div></form>';
     openSheet(h);
   }
@@ -1468,6 +1484,7 @@ body.fdragging,body.fdragging *{cursor:grabbing!important;-webkit-user-select:no
     o.price = o.price === '' ? null : Number(o.price); o.score = o.score === '' ? null : Number(o.score);
     if (o.score != null && (isNaN(o.score) || o.score < 0 || o.score > 100)) throw new Error('Score must be between 0 and 100.');
     if (o.score === 0) throw new Error('Leave the score blank for unrated (0 is treated as not reviewed).');
+    o.type = MG.normCinemaType(o.type);
     o.time = o.time || null; o.chainNorm = o.chain; o.watched = form.elements.seen.checked ? true : undefined;
     if (o.score != null) o.watched = true;
     return o;
